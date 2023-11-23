@@ -3,7 +3,7 @@ My solutions for advent of code 2023 in Julia.
 
 ## setup
 ```bash
-git clone  --recursive
+git clone https://github.com/davekch/aoc23 --recursive
 ```
 in a julia repl:
 ```julia
