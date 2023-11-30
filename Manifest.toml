@@ -2,7 +2,7 @@
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "8200e750ac46e1038bb6d829c0adcee02c6a43a6"
+project_hash = "ac2cfdf4beabf71bb1a1e184e2838ad05cd0897b"
 
 [[deps.AoC]]
 deps = ["DataStructures", "Test"]
