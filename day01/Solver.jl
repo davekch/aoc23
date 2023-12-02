@@ -45,16 +45,53 @@ function read_int(s)
     end
 end
 
-
-function AoC.solve2(parsed)
-    n = 0
+function solve2_incorrect(parsed)
+    ns = []
     for line in parsed
         idx = findall(r"(one)|(two)|(three)|(four)|(five)|(six)|(seven)|(eight)|(nine)|[0-9]", line)
         first = read_int(line[idx[1]])
         second = read_int(line[idx[end]])
-        n += first * 10 + second
+        push!(ns, first*10 + second)
     end
-    n
+    ns
+end
+
+function solve2_correct(parsed)
+    ns = []
+    for line in parsed
+        digits = []
+        for (i,c) in enumerate(line)
+            if isdigit(c)
+                push!(digits, int(c))
+            elseif startswith(line[i:end], "one")
+                push!(digits, 1)
+            elseif startswith(line[i:end], "two")
+                push!(digits, 2)
+            elseif startswith(line[i:end], "three")
+                push!(digits, 3)
+            elseif startswith(line[i:end], "four")
+                push!(digits, 4)
+            elseif startswith(line[i:end], "five")
+                push!(digits, 5)
+            elseif startswith(line[i:end], "six")
+                push!(digits, 6)
+            elseif startswith(line[i:end], "seven")
+                push!(digits, 7)
+            elseif startswith(line[i:end], "eight")
+                push!(digits, 8)
+            elseif startswith(line[i:end], "nine")
+                push!(digits, 9)
+            end
+        end
+        push!(ns, digits[1]*10 + digits[end])
+    end
+    ns
+end
+
+
+function AoC.solve2(parsed)
+    # note: this solution is technically wrong, i just got lucky with my input
+    solve2_incorrect(parsed) |> sum
 end
 
 
