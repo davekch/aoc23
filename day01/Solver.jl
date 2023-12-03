@@ -4,12 +4,12 @@ using AoC
 using AoC.Utils
 
 
-function AoC.parse_input(raw_data)
+function parse_input(raw_data)
     split(raw_data |> strip, "\n")
 end
 
 
-function AoC.solve1(parsed)
+function solve1(parsed)
     n = 0
     for line in parsed
         i = Utils.digits(line)
@@ -89,10 +89,12 @@ function solve2_correct(parsed)
 end
 
 
-function AoC.solve2(parsed)
+function solve2(parsed)
     # note: this solution is technically wrong, i just got lucky with my input
     solve2_incorrect(parsed) |> sum
 end
+
+solution = Solution(parse_input, solve1, solve2)
 
 
 testinput = """1abc2
@@ -104,8 +106,11 @@ testanswer_1 = 142
 testanswer_2 = 281
 export testinput, testanswer_1, testanswer_2
 
-test(part=missing) = AoC.test_solution(testinput, testanswer_1, testanswer_2, part)
+test() = AoC.test_solution(solution, testinput, testanswer_1, testanswer_2)
 export test
+
+main(part=missing) = AoC.main(solution, part)
+export main
 
 
 end # module Solver

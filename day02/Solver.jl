@@ -6,7 +6,7 @@ using AoC.Utils
 
 const RGB = Vector{Int}
 
-function AoC.parse_input(raw_data)
+function parse_input(raw_data)
     games::Vector{Tuple{Int, Vector{RGB}}} = []
     for line in lines(raw_data|>strip)
         p1, p2 = split(line, ": ")
@@ -32,7 +32,7 @@ function AoC.parse_input(raw_data)
 end
 
 
-function AoC.solve1(parsed)
+function solve1(parsed)
     n = 0
     for (ID, sets) in parsed
         if !any([any(s .> [12, 13, 14]) for s in sets])
@@ -43,7 +43,7 @@ function AoC.solve1(parsed)
 end
 
 
-function AoC.solve2(parsed)
+function solve2(parsed)
     power = 0
     for (ID, sets) in parsed
         colors = stack(sets)  # converts vector of vector to matrix
@@ -56,6 +56,8 @@ function AoC.solve2(parsed)
 end
 
 
+solution = Solution(parse_input, solve1, solve2)
+
 testinput = """Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
 Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
 Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
@@ -66,8 +68,10 @@ testanswer_1 = 8
 testanswer_2 = 2286
 export testinput, testanswer_1, testanswer_2
 
-test(part=missing) = AoC.test_solution(testinput, testanswer_1, testanswer_2, part)
+test() = AoC.test_solution(solution, testinput, testanswer_1, testanswer_2)
 export test
 
+main(part=missing) = AoC.main(solution, part)
+export main
 
 end # module Solver
