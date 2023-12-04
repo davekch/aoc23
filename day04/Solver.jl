@@ -6,12 +6,13 @@ using DataStructures
 
 
 function parse_input(raw_data)
-    cards = []
+    cards = OrderedDict{Int, Int}()  # maps card ID to number of winning numbers
     for line in lines(raw_data|>strip)
         (c, nums) = split(line, ": ")
         ID = split(c, " ")[end] |> strip |> int
         (winning, yours) = map(ints, split(nums, "|"))
-        push!(cards, (ID, (winning, yours)))
+        common = intersect(Set(winning), Set(yours)) |> length
+        cards[ID] = common
     end
     cards
 end
@@ -19,24 +20,16 @@ export parse_input
 
 
 function solve1(parsed)
-    points = 0
-    for (_, (winning, yours)) in parsed
-        common = intersect(Set(winning), Set(yours)) |> length
-        if common > 0
-            points += 2^(common-1)
-        end
-    end
-    points
+    map(x->2^(x-1), parsed |> values |> collect |> filter(>(0))) |> sum
 end
 export solve1
 
 
 function solve2(parsed)
     cards = DefaultDict{Int, Int}(0)
-    for (ID, (winning, yours)) in parsed
+    for (ID, wins) in parsed
         cards[ID] += 1   # this card
-        common = intersect(Set(winning), Set(yours)) |> length
-        for copyID in 1:common
+        for copyID in 1:wins
             cards[ID+copyID] += cards[ID]
         end
     end
