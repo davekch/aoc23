@@ -41,6 +41,30 @@ end
 export solve1
 
 
+"""
+reduce maps to a single list of maps
+mapping seeds to their final locations
+"""
+function reduce_maps(maps)
+    finalmaps = []
+    for map in maps
+        currentmaps = []
+        for (source, destination) in map
+            # check if the source interval intersects with any of the destination
+            # intervals we have so far
+            intersects = false
+            for (initialsource, finaldestination) in finalmaps
+                cross = intersection(source, finaldestination)
+                if length(cross) > 0
+                    intersects = true
+                    if source.start < finaldestination.start
+                        range = source.start:finaldestination.start
+            end
+        end
+    end
+end
+
+
 function solve2((seeds, maps))
     location = Inf
     for (seedstart, len) in Iterators.partition(seeds, 2)
