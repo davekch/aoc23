@@ -48,6 +48,10 @@ the new mapping takes precedence over existing intervals or not
 function add_mapping!(map, mappings; override=false)
     interval, n = map
     a, b = interval.start, interval.stop
+    if a > b
+        println("trying to add bad interval, skipping")
+        return
+    end
     @debug "    trying to add $((a,b))"
     # check for any intersections with existing intervals
     # if intersections get detected, either a,b get modified or the
@@ -56,7 +60,7 @@ function add_mapping!(map, mappings; override=false)
     for (interval2, m) in mappings |> collect
         c, d = interval2.start, interval2.stop
         @debug "     check against $((c,d))"
-        if a < c && c < b < d
+        if a < c && c <= b <= d
             @debug "      b intersects"
             # b intersects
             if override
@@ -67,7 +71,7 @@ function add_mapping!(map, mappings; override=false)
                 # (a,b) gets smaller
                 b = c-1
             end
-        elseif c < a < d && c < b < d
+        elseif c <= a < d && c < b <= d
             @debug "      $((a,b)) is enclosed by $((c,d))"
             # (a,b) is enclosed by (c,d)
             if override
@@ -83,7 +87,7 @@ function add_mapping!(map, mappings; override=false)
             # (a,b) encloses (c,d)
             @debug "      $((a,b)) encloses $((c,d))"
             println("assume this never happens")
-        elseif c < a < d && b > d
+        elseif c <= a <= d && b > d
             # a intersects
             @debug "      a intersects"
             if override
@@ -97,6 +101,7 @@ function add_mapping!(map, mappings; override=false)
         end
     end
     mappings[a:b] = n
+    @debug mappings
 end
 
 """
@@ -120,7 +125,7 @@ function reduce_maps(maps)
                 # intervals we have so far
                 c, d = interval.start+n, interval.stop+n
                 @debug "  check against $((c,d))"
-                if a < c && c < b < d
+                if a < c && c <= b <= d
                     @debug "   b intersects"
                     add_mapping!(
                         c-n:b-n => n + destination.start - source.start,
@@ -128,7 +133,7 @@ function reduce_maps(maps)
                         override=true
                     )
                     add_mapping!(a:b => destination.start - source.start, finalmaps; override=false)
-                elseif c < a < d && c < b < d
+                elseif c <= a < d && c < b <= d
                     @debug "   $((a,b)) is enclosed by $((c,d))"
                     add_mapping!(
                         a-n:b-n => n + destination.start - source.start,
@@ -138,7 +143,7 @@ function reduce_maps(maps)
                 elseif a < c && b > d
                     @debug "   $((a,b)) encloses $((c,d))"
                     println("i hope this never happens")
-                elseif c < a < d && b > d
+                elseif c <= a <= d && b > d
                     @debug "   a intersects"
                     add_mapping!(
                         a-n:d-n => n + destination.start - source.start,
