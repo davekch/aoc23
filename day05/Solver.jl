@@ -42,26 +42,95 @@ export solve1
 
 
 """
+add a new mapping to a dict of mappings. override specifies whether
+the new mapping takes precedence over existing intervals or not
+"""
+function add_mapping!((interval, n), mappings, override=false)
+    a, b = interval.start, interval.stop
+    # check for any intersections with existing intervals
+    # if intersections get detected, either a,b get modified or the
+    # existing intervals get modified (based on override)
+    # the new interval gets added at the end of the function
+    for (interval2, m) in mappings |> collect
+        c, d = interval2.start, interval2.stop
+        if a < c && c < b < d
+            # b intersects
+            if override
+                # (c,d) gets smaller
+                pop!(mappings, interval2)
+                mappings[b:d] = m
+            else
+                # (a,b) gets smaller
+                b = c
+            end
+        elseif c < a < d && c < b < d
+            # (a,b) is enclosed by (c,d)
+            if override
+                # (c,d) gets split up
+                pop!(mappings, interval2)
+                mappings[c:a] = m
+                mappigns[b:d] = m
+            else
+                # nothing to add
+                return
+            end
+        elseif a < c && b > d
+            # (a,b) encloses (c,d)
+            # ??
+        elseif c < a < d && b > d
+            # a intersects
+            if override
+                # (c,d) gets smaller
+                pop!(mappings, interval2)
+                mappings[c:a] = m
+            else
+                # (a,b) gets smaller
+                a = d
+            end
+        end
+    end
+    mappings[a:b] = n
+end
+
+"""
 reduce maps to a single list of maps
 mapping seeds to their final locations
 """
 function reduce_maps(maps)
-    finalmaps = []
+    # finalmaps = []
+    finalmaps = Dict()  # maps intervals to the number that gets added
     for map in maps
-        currentmaps = []
+        # currentmaps = []
+        currentmaps = Dict()
         for (source, destination) in map
-            # check if the source interval intersects with any of the destination
-            # intervals we have so far
-            intersects = false
-            for (initialsource, finaldestination) in finalmaps
-                cross = intersection(source, finaldestination)
-                if length(cross) > 0
-                    intersects = true
-                    if source.start < finaldestination.start
-                        range = source.start:finaldestination.start
+            a, b = source.start, source.stop
+            newintervals = Dict()
+            for (interval, n) in finalmaps
+                # check if the source interval intersects with any of the destination
+                # intervals we have so far
+                c, d = interval.start+n, interval.stop+n
+                if a < c && c < b < d
+                    # b intersects
+                    newintervals[c-n:b-n] = n + destination.start - source.start  # this one is certain
+                    newintervals[a:b] = destination.start - source.start  # should get overwritten by existing intervals
+                elseif c < a < d && c < b < d
+                    # (a,b) is enclosed by (c,d)
+                    newintervals[a-n:b-n] = n + destination.start - source.start  # certain
+                elseif a < c && b > d
+                    # (a,b) encloses (c,d)
+                    # ??
+                elseif c < a < d && b > d
+                    # a intersects
+                    newintervals[a-n:d-n] = n  + destination.start - source.start  # certain
+                    newintervals[a:b] = destination.start - source.start  # not certain
+                else
+                    # no intersection
+                    newintervals[a:b] = destination.start - source.start  # not certain
+                end
             end
         end
     end
+    finalmaps
 end
 
 
