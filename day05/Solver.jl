@@ -45,47 +45,54 @@ export solve1
 add a new mapping to a dict of mappings. override specifies whether
 the new mapping takes precedence over existing intervals or not
 """
-function add_mapping!((interval, n), mappings, override=false)
+function add_mapping!(map, mappings; override=false)
+    interval, n = map
     a, b = interval.start, interval.stop
+    @debug "    trying to add $((a,b))"
     # check for any intersections with existing intervals
     # if intersections get detected, either a,b get modified or the
     # existing intervals get modified (based on override)
     # the new interval gets added at the end of the function
     for (interval2, m) in mappings |> collect
         c, d = interval2.start, interval2.stop
+        @debug "     check against $((c,d))"
         if a < c && c < b < d
+            @debug "      b intersects"
             # b intersects
             if override
                 # (c,d) gets smaller
                 pop!(mappings, interval2)
-                mappings[b:d] = m
+                mappings[b+1:d] = m
             else
                 # (a,b) gets smaller
-                b = c
+                b = c-1
             end
         elseif c < a < d && c < b < d
+            @debug "      $((a,b)) is enclosed by $((c,d))"
             # (a,b) is enclosed by (c,d)
             if override
                 # (c,d) gets split up
                 pop!(mappings, interval2)
-                mappings[c:a] = m
-                mappigns[b:d] = m
+                mappings[c:a-1] = m
+                mappings[b+1:d] = m
             else
                 # nothing to add
                 return
             end
         elseif a < c && b > d
             # (a,b) encloses (c,d)
-            # ??
+            @debug "      $((a,b)) encloses $((c,d))"
+            println("assume this never happens")
         elseif c < a < d && b > d
             # a intersects
+            @debug "      a intersects"
             if override
                 # (c,d) gets smaller
                 pop!(mappings, interval2)
-                mappings[c:a] = m
+                mappings[c:a-1] = m
             else
                 # (a,b) gets smaller
-                a = d
+                a = d+1
             end
         end
     end
@@ -97,41 +104,58 @@ reduce maps to a single list of maps
 mapping seeds to their final locations
 """
 function reduce_maps(maps)
-    # finalmaps = []
     finalmaps = Dict()  # maps intervals to the number that gets added
-    for map in maps
-        # currentmaps = []
-        currentmaps = Dict()
+    # start with the first layer
+    for (source, destination) in maps[1]
+        finalmaps[source.start:source.stop] = destination.start - source.start
+    end
+
+    # continue with the rest
+    for map in maps[2:end]
         for (source, destination) in map
             a, b = source.start, source.stop
-            newintervals = Dict()
-            for (interval, n) in finalmaps
+            @debug "checking $((a,b)) against all existing intervals..."
+            for (interval, n) in finalmaps |> collect
                 # check if the source interval intersects with any of the destination
                 # intervals we have so far
                 c, d = interval.start+n, interval.stop+n
+                @debug "  check against $((c,d))"
                 if a < c && c < b < d
-                    # b intersects
-                    newintervals[c-n:b-n] = n + destination.start - source.start  # this one is certain
-                    newintervals[a:b] = destination.start - source.start  # should get overwritten by existing intervals
+                    @debug "   b intersects"
+                    add_mapping!(
+                        c-n:b-n => n + destination.start - source.start,
+                        finalmaps;
+                        override=true
+                    )
+                    add_mapping!(a:b => destination.start - source.start, finalmaps; override=false)
                 elseif c < a < d && c < b < d
-                    # (a,b) is enclosed by (c,d)
-                    newintervals[a-n:b-n] = n + destination.start - source.start  # certain
+                    @debug "   $((a,b)) is enclosed by $((c,d))"
+                    add_mapping!(
+                        a-n:b-n => n + destination.start - source.start,
+                        finalmaps;
+                        override=true
+                    )
                 elseif a < c && b > d
-                    # (a,b) encloses (c,d)
-                    # ??
+                    @debug "   $((a,b)) encloses $((c,d))"
+                    println("i hope this never happens")
                 elseif c < a < d && b > d
-                    # a intersects
-                    newintervals[a-n:d-n] = n  + destination.start - source.start  # certain
-                    newintervals[a:b] = destination.start - source.start  # not certain
+                    @debug "   a intersects"
+                    add_mapping!(
+                        a-n:d-n => n + destination.start - source.start,
+                        finalmaps;
+                        override=true
+                    )
+                    add_mapping!(a:b => destination.start - source.start, finalmaps; override=false)
                 else
-                    # no intersection
-                    newintervals[a:b] = destination.start - source.start  # not certain
+                    @debug "   no intersection"
+                    add_mapping!(a:b => destination.start - source.start, finalmaps; override=false)
                 end
             end
         end
     end
     finalmaps
 end
+export reduce_maps
 
 
 function solve2((seeds, maps))
