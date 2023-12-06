@@ -12,21 +12,22 @@ export parse_input
 
 # let d = traveled distance, T = duration of race, x = ms to hold the button
 # d(x) = v*t = x*(T-x)
-# d(x) > a -> find zeros of d - a // brute force probably also fast enough
+# d(x) > r -> find zeros of d - r
 
 distance(x, T) = x * (T - x)
 
+function find_zeros(time, record)
+    x1 = (time-sqrt(time^2-4record)) / 2
+    x2 = (time+sqrt(time^2-4record)) / 2
+    Int(floor(x1+1)), Int(ceil(x2-1))
+end
+
+
 function solve1((times, distances))
-    # brute force
     solution = 1
     for (t, d) in zip(times, distances)
-        breaks_record = 0
-        for x = 0:t
-            dd = distance(x, t)
-            if dd > d
-                breaks_record += 1
-            end
-        end
+        x1, x2 = find_zeros(t, d)
+        breaks_record = x2 - x1 + 1
         solution *= breaks_record
     end
     solution
@@ -37,14 +38,8 @@ export solve1
 function solve2((times, distances))
     t = map(string, times) |> prod |> int
     d = map(string, distances) |> prod |> int
-    breaks_record = 0
-    for x = 0:t
-        dd = distance(x, t)
-        if dd > d
-            breaks_record += 1
-        end
-    end
-    breaks_record
+    x1, x2 = find_zeros(t, d)
+    x2 - x1 + 1
 end
 export solve2
 
