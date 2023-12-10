@@ -33,7 +33,14 @@ function parse_input(raw_data)
         end
         current = next[1]
     end
-    loop[start] = '|'   # this is specific to my input
+    # find out which pipe-part the start must be
+    for s in "FL7J|-"
+        if all([start+dp ∈ neighbours(grid, start) for dp in leads_to(s)])
+            loop[start] = s
+            println(s)
+            break
+        end
+    end
     loop
 end
 export parse_input
