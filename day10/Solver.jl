@@ -18,7 +18,22 @@ function parse_input(raw_data)
             grid[Point2D(x,y)] = c
         end
     end
-    (start, grid)
+    # find points on the loop
+    # the loop is closed and there can be no branches (all pipe elements only have
+    # two ends) so we can just walk from the start
+    loop = []
+    current = start
+    while grid[current] != 'S' || length(loop) == 0
+        push!(loop, current)
+        next = [n for n in neighbours(grid, current) if n ∉ loop]
+        # println("$current => $(grid[current])")
+        # println(next)
+        if length(next) == 0
+            break
+        end
+        current = next[1]
+    end
+    loop
 end
 export parse_input
 
@@ -56,26 +71,8 @@ function neighbours(grid, p)
 end
 
 
-function solve1((start, grid))
-    # the loop is closed and there can be no branches (all pipe elements only have
-    # two ends) so we can just walk from the start; farthest should be half the
-    # full circle
-    steps = 0
-    current = start
-    seen = []
-    while grid[current] != 'S' || steps == 0
-        push!(seen, current)
-        next = [n for n in neighbours(grid, current) if n ∉ seen]
-        # println("$current => $(grid[current])")
-        # println(next)
-        if length(next) == 0
-            steps += 1
-            break
-        end
-        current = next[1]
-        steps += 1
-    end
-    return Int(steps // 2)
+function solve1(loop)
+    return Int(length(loop) // 2)
 end
 export solve1
 
