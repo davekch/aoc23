@@ -3,6 +3,7 @@ using Test
 using AoC
 using AoC.Utils
 import DataStructures: Queue, enqueue!, dequeue!, isempty
+import Combinatorics: combinations
 
 
 function parse_input(raw_data)
@@ -75,11 +76,88 @@ function n_possibilities_iterative((record, damaged))
                 n += 1
             end
         else
-            enqueue!(variations, replace(current, "?"=>"#", count=1))
-            enqueue!(variations, replace(current, "?"=>".", count=1))
+            for r in ["#", "."]
+                new = replace(current, "?"=>r, count=1)
+                # if is_possible(new, damaged)
+                    enqueue!(variations, new)
+                # end
+            end
         end
     end
     n
+end
+
+
+function solve(parsed)
+    lookup_table = Dict{String, Int}()
+
+    function n_possibilities(chunk, d)
+        # chunk must have d consecutive #s
+        if '?' ∉ chunk
+            chunks = split(chunk, ".") |> filter(!=(""))
+            if length(chunks) == 1 && length(chunks[1]) == d
+                # valid!
+                return 1
+            else
+                return 0
+            end
+        end
+        # invalid; keep searching
+        n = 0
+        for r in ["#", "."]
+            new = replace(chunk, "?"=>r, count=1)
+            if new in keys(lookup_table)
+                n += lookup_table[new]
+            else
+                nn = n_possibilities(new, d)
+                lookup_table[new] = nn
+                n += nn
+            end
+        end
+        # n += n_possibilities(replace(chunk, "?"=>"#", count=1), d)
+        # n += n_possibilities(replace(chunk, "?"=>".", count=1), d)
+        n
+    end
+
+    solution = 0
+    for (record, damaged) in parsed
+        n = 0
+        chunks = split(record, ".") |> filter(!=(""))
+        if length(chunks) == length(damaged)
+            n = 1
+            for (c, d) in zip(chunks, damaged)
+                if c in keys(lookup_table)
+                    n *= lookup_table[c]
+                else
+                    nn = n_possibilities(c, d)
+                    lookup_table[c] = nn
+                    n *= nn
+                end
+            end
+        elseif length(chunks) < length(damaged)
+            # we need to split up some chunks
+        else
+            # some chunks must be dots only (only 1 possibility for them)
+            replacable_idx = [i for (i,c) in enumerate(chunks) if c == repeat("?", length(c))]  # <- continue with this approach, the below is rubbish
+            # take all combinations of len(damaged) chunks and calculate possibilities
+            # !! this is wrong -- you must only do this for chunks that still contain '?'
+            for cs in combinations(chunks, length(damaged))
+                println("check out $cs")
+                for (c, d) in zip(cs, damaged)
+                    # attention: these possibilities *add up*
+                    if c in keys(lookup_table)
+                        n += lookup_table[c]
+                    else
+                        nn = n_possibilities(c, d)
+                        lookup_table[c] = nn
+                        n += nn
+                    end
+                end
+            end
+        end
+        solution += n
+    end
+    solution
 end
 
 
