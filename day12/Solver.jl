@@ -2,6 +2,7 @@ module Solver
 using Test
 using AoC
 using AoC.Utils
+import DataStructures: Queue, enqueue!, dequeue!, isempty
 
 
 function parse_input(raw_data)
@@ -37,7 +38,7 @@ export parse_input
 # end
 
 
-function n_possibilities((record, damaged))
+function n_possibilities_recursive((record, damaged))
     # println(record)
     chunks = split(record, ".") |> filter(!=(""))
     lchunks = map(length, chunks)
@@ -52,20 +53,72 @@ function n_possibilities((record, damaged))
         end
     end
     n = 0
-    n += n_possibilities((replace(record, "?"=>"#", count=1), damaged))
-    n += n_possibilities((replace(record, "?"=>".", count=1), damaged))
+    n += n_possibilities_recursive((replace(record, "?"=>"#", count=1), damaged))
+    n += n_possibilities_recursive((replace(record, "?"=>".", count=1), damaged))
     n
 end
-export n_possibilities
+
+
+# 40-50% faster, still slow
+function n_possibilities_iterative((record, damaged))
+    variations = Queue{String}()
+    enqueue!(variations, record)
+    n = 0
+    while !isempty(variations)
+        # println(length(variations))
+        current = dequeue!(variations)
+        if '?' ∉ current
+            chunks = split(current, ".") |> filter(!=(""))
+            lchunks = map(length, chunks)
+            if lchunks == damaged
+                # println("valid!")
+                n += 1
+            end
+        else
+            enqueue!(variations, replace(current, "?"=>"#", count=1))
+            enqueue!(variations, replace(current, "?"=>".", count=1))
+        end
+    end
+    n
+end
 
 
 function solve1(parsed)
-    map(n_possibilities, parsed) |> sum
+    # map(n_possibilities_iterative, parsed) |> sum
+
+    n = Threads.Atomic{Int}(0)
+    l = length(parsed)
+    Threads.@threads for (i, x) in enumerate(parsed) |> collect
+        # println("$i/$l: $(x[1])")
+        t = @elapsed nn = n_possibilities_iterative(x)
+        Threads.atomic_add!(n, nn)
+        # println("$nn new possibilities (took $t)")
+    end
+    n[]   # get value from atomic
 end
 export solve1
 
 
 function solve2(parsed)
+    unfolded = []
+    for (r, d) in parsed
+        push!(
+            unfolded,
+            (
+                join(repeat([r], 5), "?"),
+                repeat(d, 5)
+            )
+        )
+    end
+    n = Threads.Atomic{Int}(0)
+    l = length(unfolded)
+    Threads.@threads for (i, x) in enumerate(unfolded) |> collect
+        println("$i/$l: $(x[1])")
+        t = @elapsed nn = n_possibilities_iterative(x)
+        Threads.atomic_add!(n, nn)
+        println("$nn new possibilities (took $t)")
+    end
+    n[]   # get value from atomic
 end
 export solve2
 
