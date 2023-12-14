@@ -7,124 +7,60 @@ using Bijections
 
 
 function parse_input(raw_data)
-    grid = Dict{Point2D, Char}()
+    fixed = Set{Point2D}()
+    movable = Set{Point2D}()
     for (y, line) in raw_data |> strip |> lines |> enumerate
         for (x, c) in line |> enumerate
-            if c == '#' || c == 'O'
-                grid[Point2D(x, y)] = c
+            if c == '#'
+                push!(fixed, Point2D(x-1, y-1))   # coordinate system should be 0-indexed
+            elseif c == 'O'
+                push!(movable, Point2D(x-1, y-1))
             end
         end
     end
-    grid
+    fixed, movable
 end
 export parse_input
 
 
-function all_north(grid)
-    moved = Dict{Point2D, Char}()
-    for p in sort(keys(grid)|>collect, by=p->p.y)
-        # it's important to have a loop over sorted y to ensure we fill the moved
-        # grid from top to bottom
-        if grid[p] == '#'
-            # does not move
-            moved[p] = grid[p]
-        else
-            # should be as far up north as possible
-            northest_y = 1
-            ys = [pp.y for pp in keys(moved) if pp.x == p.x]
-            if length(ys) > 0
-                northest_y = maximum(ys) + 1
+function all_north(fixed, movable)
+    moved = Set{Point2D}()
+    cur_grid = fixed ∪ moved
+    for p in sort(movable|>collect, by=p->p.y)
+        northest_y = 0
+        # find closest y north to this point
+        for y = p.y:-1:0
+            if Point2D(p.x, y) ∈ cur_grid #&& Point2D(p.x, y+1) ∉ cur_grid
+                northest_y = y + 1
+                break
             end
-            moved[Point2D(p.x, northest_y)] = grid[p]
         end
-        # println(grid_to_string(moved))
+        push!(moved, Point2D(p.x, northest_y))
+        push!(cur_grid, Point2D(p.x, northest_y))
     end
     moved
 end
+export all_north
 
-function all_south(grid, southest)
-    moved = Dict{Point2D, Char}()
-    for p in sort(keys(grid)|>collect, by=p->p.y, rev=true)
-        # loop over reversed sorted y to ensure we fill the moved
-        # grid from bottom to top
-        if grid[p] == '#'
-            # does not move
-            moved[p] = grid[p]
-        else
-            # should be as far down south as possible
-            southest_y = southest
-            ys = [pp.y for pp in keys(moved) if pp.x == p.x]
-            if length(ys) > 0
-                southest_y = minimum(ys) - 1
-            end
-            moved[Point2D(p.x, southest_y)] = grid[p]
-        end
-        # println(grid_to_string(moved))
-    end
-    moved
+
+function rotate(points, center)
+    # rotate clockwise; that's a left turn in lefthanded coordinate system
+    rot90l.(points .- center) .+ center
 end
-
-function all_west(grid)
-    moved = Dict{Point2D, Char}()
-    for p in sort(keys(grid)|>collect, by=p->p.x)
-        # loop over sorted x to ensure we fill the moved
-        # grid from left to right
-        if grid[p] == '#'
-            # does not move
-            moved[p] = grid[p]
-        else
-            # should be as far west as possible
-            westest_x = 1
-            xs = [pp.x for pp in keys(moved) if pp.y == p.y]
-            if length(xs) > 0
-                westest_x = maximum(xs) + 1
-            end
-            moved[Point2D(westest_x, p.y)] = grid[p]
-        end
-        # println(grid_to_string(moved))
-    end
-    moved
-end
-
-function all_east(grid, eastest)
-    moved = Dict{Point2D, Char}()
-    for p in sort(keys(grid)|>collect, by=p->p.x, rev=true)
-        # loop over reversed sorted x to ensure we fill the moved
-        # grid from right to left
-        if grid[p] == '#'
-            # does not move
-            moved[p] = grid[p]
-        else
-            # should be as far east as possible
-            eastest_x = eastest
-            xs = [pp.x for pp in keys(moved) if pp.y == p.y]
-            if length(xs) > 0
-                eastest_x = minimum(xs) - 1
-            end
-            moved[Point2D(eastest_x, p.y)] = grid[p]
-        end
-        # println(grid_to_string(moved))
-    end
-    moved
-end
+export rotate
 
 
-function solve1(parsed)
-    moved = all_north(parsed)
-    _,_,_,maxy = corners(keys(parsed))
-    result = 0
-    for (p, c) in moved
-        if c == 'O'
-            result += maxy - p.y + 1
-        end
-    end
-    result
+function solve1((fixed, moved))
+    moved = all_north(fixed, moved)
+    _,_,_,maxy = corners(fixed ∪ moved)
+    sum([maxy + 1 - p.y for p in moved])
 end
 export solve1
 
 
-function solve2(grid)
-    _,maxx,_,maxy = corners(keys(grid))
+function solve2((fixed, moved))
+    _,maxx,_,maxy = corners(fixed ∪ moved)
+    center = Point2D((maxx+1)÷2, (maxy+1)÷2)
     seen = Bijection()
     loop_start = 0
     loop_end = 0
@@ -132,11 +68,14 @@ function solve2(grid)
         # if i % 10 == 0
         #     println("$i ($(i/1000000000))%)")
         # end
-        grid = all_north(grid)
-        grid = all_west(grid)
-        grid = all_south(grid, maxy)
-        grid = all_east(grid, maxx)
-        serialized = grid_to_string(grid)
+        for _ = 1:4
+            moved = all_north(fixed, moved)
+            moved = rotate(moved, center)
+            fixed = rotate(fixed, center)
+        end
+        # prettyprint(fixed, moved)
+        # convert grid to string to store it in a hashtable
+        serialized = grid_to_string(Dict(moved.=>'O'))
         # println(serialized)
         if serialized in keys(seen)
             loop_start = seen[serialized]
@@ -147,15 +86,9 @@ function solve2(grid)
         end
     end
     final_index = (1000000000 - loop_start) % (loop_end - loop_start) + loop_start
-    # println((loop_start, loop_end))
-    grid = parse_input(seen(final_index))
-    result = 0
-    for (p, c) in grid
-        if c == 'O'
-            result += maxy - p.y + 1
-        end
-    end
-    result
+    println((loop_start, loop_end))
+    _, moved = parse_input(seen(final_index))
+    sum([maxy + 1 - p.y for p in moved])
 end
 export solve2
 
@@ -184,5 +117,12 @@ export test
 main(part=missing) = AoC.main(solution, part)
 export main
 
+
+# -------- helpers
+function prettyprint(fixed, moved)
+    grid = Dict(Dict(fixed.=>'#') ∪ Dict(moved.=>'O'))
+    println(grid_to_string(grid))
+end
+export prettyprint
 
 end # module Solver
