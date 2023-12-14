@@ -3,6 +3,7 @@ using Test
 using AoC
 using AoC.Utils
 using AoC.Utils.Geometry
+using Bijections
 
 
 function parse_input(raw_data)
@@ -108,17 +109,6 @@ function all_east(grid, eastest)
 end
 
 
-function cycle(grid)
-    # buggy
-    for _ in 1:4
-        grid = all_north(grid)
-        # rotate *left* because positive y direction is down
-        grid = Dict([rot90l(p)=>c for (p, c) in grid])
-    end
-    grid
-end
-
-
 function solve1(parsed)
     moved = all_north(parsed)
     _,_,_,maxy = corners(keys(parsed))
@@ -135,16 +125,30 @@ export solve1
 
 function solve2(grid)
     _,maxx,_,maxy = corners(keys(grid))
+    seen = Bijection()
+    loop_start = 0
+    loop_end = 0
     for i = 1:1000000000
-        if i % 100000 == 0
-            println("$i ($(i/1000000000))%)")
-        end
+        # if i % 10 == 0
+        #     println("$i ($(i/1000000000))%)")
+        # end
         grid = all_north(grid)
         grid = all_west(grid)
         grid = all_south(grid, maxy)
         grid = all_east(grid, maxx)
-        # println(grid_to_string(grid))
+        serialized = grid_to_string(grid)
+        # println(serialized)
+        if serialized in keys(seen)
+            loop_start = seen[serialized]
+            loop_end = i
+            break
+        else
+            seen[serialized] = i
+        end
     end
+    final_index = (1000000000 - loop_start) % (loop_end - loop_start) + loop_start
+    # println((loop_start, loop_end))
+    grid = parse_input(seen(final_index))
     result = 0
     for (p, c) in grid
         if c == 'O'
