@@ -2,7 +2,7 @@
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "95ffd51e0c9b6abfed0c9de32f985a452989623b"
+project_hash = "18401a4090be3566f64279a29456c340c92b7b25"
 
 [[deps.AoC]]
 deps = ["DataStructures", "Test"]
@@ -12,6 +12,11 @@ version = "0.2.1"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.Bijections]]
+git-tree-sha1 = "c9b163bd832e023571e86d0b90d9de92a9879088"
+uuid = "e2ed5e7c-b2de-5872-ae92-c73ca462fb04"
+version = "0.1.6"
 
 [[deps.Combinatorics]]
 git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
