@@ -5,7 +5,7 @@ manifest_format = "2.0"
 project_hash = "18401a4090be3566f64279a29456c340c92b7b25"
 
 [[deps.AoC]]
-deps = ["DataStructures", "Test"]
+deps = ["Combinatorics", "DataStructures", "Test"]
 path = "aoc/utils/jl"
 uuid = "c8bb57cb-0d6f-4b80-8764-b54df5b22180"
 version = "0.2.1"
