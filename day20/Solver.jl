@@ -2,6 +2,8 @@ module Solver
 using Test
 using AoC
 using AoC.Utils
+using DataStructures
+
 
 @enum PULSE begin
     HI
@@ -147,18 +149,27 @@ function button!(network)
     hi_pulses = 0
     lo_pulses = 1
     receive!(network["broadcaster"], "button", LO)
-    newpulses = 1
+    to_process = Queue{String}()
+    enqueue!(to_process, "broadcaster")
     println("button lo -> broadcaster -------------")
-    while newpulses > 0
-        for m in values(network)
-            process!(m)
+    while !isempty(to_process)
+        changed = []
+        # change state of all modules in the queue
+        while !isempty(to_process)
+            current = network[dequeue!(to_process)]
+            process!(current)
+            push!(changed, current)
         end
-        newpulses = 0
-        for m in values(network)
-            his, los = send!(network, m)
-            hi_pulses += his
-            lo_pulses += los
-            newpulses += his + los
+        # send pulses from all modules that we just processed
+        for current in changed
+            if current.msg_buf !== nothing
+                his, los = send!(network, current)
+                hi_pulses += his
+                lo_pulses += los
+                for r in current.out_connections
+                    enqueue!(to_process, r)
+                end
+            end
         end
     end
     hi_pulses, lo_pulses
