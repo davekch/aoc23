@@ -19,46 +19,6 @@ end
 export parse_input
 
 
-function dig_loop(instructions)
-    current = Point2D(1,1)
-    grid = Set([current])
-    for (d, l) in instructions
-        dir = Point2D(0,0)
-        if d == "L"
-            dir = Point2D(-1, 0)
-        elseif d == "R"
-            dir = Point2D(1, 0)
-        elseif d == "U"
-            dir = Point2D(0, -1)
-        elseif d == "D"
-            dir = Point2D(0, 1)
-        end
-        for _ in 1:l
-            current += dir
-            push!(grid, current)
-        end
-    end
-    grid
-end
-
-
-function flood_fill(boundary, start)
-    filled = Set()
-    q = Queue{Point2D}()
-    enqueue!(q, start)
-    while !isempty(q)
-        current = dequeue!(q)
-        push!(filled, current)
-        for neighbour in neighbours8(current)
-            if neighbour ∉ filled && neighbour ∉ boundary && neighbour ∉ q
-                enqueue!(q, neighbour)
-            end
-        end
-    end
-    filled
-end
-
-
 function follow_loop(instructions)
     current = Point2D(1,1)
     points = [current]
@@ -80,36 +40,27 @@ function follow_loop(instructions)
 end
 
 
-function weird_shoelace(points)
-    # algorithm based on shoelace formula but but integer points in rectangles
-    A = 0
+function sidelength(points)
+    L = 0
     N = length(points)
-    # for ((x1,y1), (x2,y2)) in zip(points[1:end-1], points[2:end])
     for i = 1:N
         x1,y1 = points[i]
-        x2,y2 = points[i%N + 1]  # julia is 1-indexed
-        # only consider horizontal lines
-        if y1 != y2
-            continue
-        end
-        A += (x2 - x1 + sign(x2 - x1)) * y2
-        # A += (x2 - x1) * y2
-        println(A)
+        x2,y2 = points[i%N + 1]
+        L += abs(x2 - x1) + abs(y2 - y1)
     end
-    abs(A)
+    L
 end
-export weird_shoelace
 
 
 function solve1(parsed)
     dirs, ls, _ = unzip(parsed)
     instructions = zip(dirs, ls)
-    loop = dig_loop(instructions)
-    # println(grid_to_string(Dict(loop.=>'#')))
-    filled = flood_fill(loop, Point2D(2,2))
-    length(loop) + length(filled)
-    # loop = follow_loop(instructions)
-    # weird_shoelace(loop)
+    loop = follow_loop(instructions)
+    B = sidelength(loop)
+    A = polyarea(loop)
+    # picks theorem: points inside loop
+    I = A - B // 2 + 1
+    I + B 
 end
 export solve1
 
@@ -127,7 +78,7 @@ function convert_instructions(colors)
         elseif dd == '2'
             d = "L"
         elseif dd == '3'
-            d = "R"
+            d = "U"
         end
         push!(instructions, (d, l))
     end
@@ -139,7 +90,12 @@ function solve2(parsed)
     _,_,colors = unzip(parsed)
     instructions = convert_instructions(colors)
     loop = follow_loop(instructions)
-    weird_shoelace(loop)
+    # println(loop)
+    B = sidelength(loop)
+    A = polyarea(loop)
+    # picks theorem: points inside loop
+    I = A - B // 2 + 1
+    I + B 
 end
 export solve2
 
