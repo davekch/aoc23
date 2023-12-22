@@ -41,16 +41,16 @@ function solve(nsteps, (start, grid))
             end
         end
         reached = length(newq)
-        # debug stuff for part 2 --------------------
-        println("after $i steps: $reached")
-        printable = Dict([
-            p => (p.x ∈ 1:11 && p.y ∈ 1:11) ? "\033[48;5;57m$c\033[0m" : c
-            for (p, c) in grid ∪ Dict(newq.=>'O')
-        ])
-        println(grid_to_string(printable))
-        # println("reached in original grid: $(length(filter(p -> p.x ∈ 1:11 && p.y ∈ 1:11, newq)))")
-        sleep(0.1)
-        # -------------------------------------------
+        # # debug stuff for part 2 --------------------
+        # println("after $i steps: $reached")
+        # printable = Dict([
+        #     p => (p.x ∈ 1:11 && p.y ∈ 1:11) ? "\033[48;5;57m$c\033[0m" : c
+        #     for (p, c) in grid ∪ Dict(newq.=>'O')
+        # ])
+        # println(grid_to_string(printable))
+        # # println("reached in original grid: $(length(filter(p -> p.x ∈ 1:11 && p.y ∈ 1:11, newq)))")
+        # sleep(0.03)
+        # # -------------------------------------------
         q = newq
     end
     reached
@@ -73,32 +73,75 @@ end
 export solve1
 
 
+const Grid = Dict{Point2D, Char}
+
 function solve_infinite(nsteps, (start, grid))
     minx,maxx,miny,maxy = corners(keys(grid))
     reached = 0
     current = start
-    q = DefaultDict{Point2D, Int}(0)
-    q[current] = 1
+    # the first point is an index in which grid we are
+    # for some reason (Point2D(i,j), Point(x,y)) in Set([(Point2D(i,j), Point(x,y))]) is false 
+    # while (Point2D(i,j), Point(x,y)) in [(Point2D(i,j), Point(x,y))] is true so i guess i need to use a vector
+    q = Tuple{Point2D, Point2D}[]
+    push!(q, (Point2D(0,0), current))
+    # history of how many we reached for each grid
+    occupied = DefaultDict{Point2D, Vector{Int}}([])
+    oscillates = Point2D[]
     for i = 1:nsteps
-        newq = DefaultDict{Point2D, Int}(0)
+        println(i)
+        newq = Tuple{Point2D, Point2D}[]
         while !isempty(q)
-            current, count = pop!(q)
+            grid_ij, current = pop!(q)
             for n ∈ neighbours4(current)
-                if grid[Point2D(mod(n.x, minx:maxx), mod(n.y, miny:maxy))] != '#' && n ∉ keys(newq)
-                    newq[n] += count
+                # check if this neighbour moves to a next 
+                n_grid_ij = grid_ij
+                if n.x < minx
+                    n_grid_ij += Point2D(-1,0)
+                elseif n.x > maxx
+                    n_grid_ij += Point2D(1,0)
+                elseif n.y < miny
+                    n_grid_ij += Point2D(0,-1)
+                elseif n.y > maxy
+                    n_grid_ij += Point2D(0,1)
+                end
+                n = Point2D(mod(n.x, minx:maxx), mod(n.y, miny:maxy))
+                if grid[n] != '#' && (n_grid_ij, n) ∉ newq && n_grid_ij ∉ oscillates  # the border does not contain rocks
+                    push!(newq, (n_grid_ij, n))
                 end
             end
         end
-        # wrap outside points back to inside of the grid
-        wrapped = DefaultDict{Point2D, Int}(0)
-        for (p,c) ∈ newq
-            wrapped[Point2D(mod(p.x, minx:maxx), mod(p.y, miny:maxy))] += c
+        # stupid
+        # println(newq)
+        occs = DefaultDict{Point2D, Int}(0)
+        for (grid_ij, _) in newq
+            occs[grid_ij] += 1
         end
-        reached = sum(values(wrapped))
-        println("after $i steps: $reached")
-        println(grid_to_string(Dict(grid ∪ wrapped)))
-        q = wrapped
+        # display(newq)
+        # check if one of the grids is oscillating
+        for (grid_ij, occ) in occs
+            history = occupied[grid_ij]
+            if length(history) >= 2 && occ == history[end-1]
+                # this grid is oscillating; remove all its points from the queue
+                filter!(item->item[1]!=grid_ij, newq)
+                # we now know what this grid will contribute to the number of reached points;
+                # depends only on whether we are at an odd or even step
+                if nsteps % 2 == i % 2
+                    println("$grid_ij oscillates, will be $(occ)")
+                    reached += occ
+                else
+                    println("$grid_ij oscillates, will be $(history[end])")
+                    reached += history[end]
+                end
+                pop!(occupied, grid_ij)
+                push!(oscillates, grid_ij)
+            else
+                push!(history, occ)
+            end
+        end
+        q = newq
     end
+    # display(occupied)
+    reached += sum([h[end] for h in values(occupied)])
     reached
 end
 export solve_infinite
