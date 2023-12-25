@@ -15,101 +15,55 @@ abstract type AbstractModule end
 const Network = Dict{String, AbstractModule}
 const Message = Union{PULSE, Nothing}
 
-function send!(modules::Network, m::AbstractModule)
-    hi_pulses = 0
-    lo_pulses = 0
-    if m.msg_buf !== nothing
-        for r in m.out_connections
-            receiver = modules[r]
-            receive!(receiver, m.name, m.msg_buf)
-            if m.msg_buf == HI
-                println("$(m.name) hi -> $(receiver.name)")
-                hi_pulses += 1
-            elseif m.msg_buf == LO
-                println("$(m.name) lo -> $(receiver.name)")
-                lo_pulses += 1
-            end
-        end
-        println("-----------")
-        m.msg_buf = nothing  # empty message buffer after sending
-    end
-    hi_pulses, lo_pulses
-end
-
-process!(m::AbstractModule) = nothing
-receive!(receiver::AbstractModule, from, msg) = nothing
+# get an incoming message and return a vector of (from, to, message)
+process!(m::AbstractModule, from, msg) = nothing
 
 
 # ----------- module implementations
 
-@kwdef mutable struct FlipFlop <: AbstractModule
+mutable struct FlipFlop <: AbstractModule
     name::AbstractString
     out_connections::Vector{<:AbstractString}
-    msg_buf::Message = nothing
-    incoming::Message = nothing
-    state::Bool = false
+    state::Bool
 end
 
-function receive!(flipflop::FlipFlop, from, msg)
-    flipflop.incoming = msg
-end
-
-function process!(flipflop::FlipFlop)
-    if flipflop.incoming == LO
+function process!(flipflop::FlipFlop, from, msg)
+    if msg == LO
         flipflop.state = !flipflop.state
-        flipflop.msg_buf = flipflop.state ? HI : LO
+        out = flipflop.state ? HI : LO
+        return [(flipflop.name, to, out) for to in flipflop.out_connections]
     end
-    flipflop.incoming = nothing
 end
 
-
-@kwdef mutable struct Conjunction <: AbstractModule
+mutable struct Conjunction <: AbstractModule
     name::AbstractString
     out_connections::Vector{<:AbstractString}
-    msg_buf::Message = nothing
-    incoming::Dict{AbstractString, Message} = Dict()
-    should_send::Bool = false
+    incoming::Dict{AbstractString, Message}
 end
 
-function receive!(conjunction::Conjunction, from, msg)
+function process!(conjunction::Conjunction, from, msg)
     conjunction.incoming[from] = msg
-    # should send only if we received something (apparently)
-    conjunction.should_send = true
-end
-
-function process!(conjunction::Conjunction)
-    if conjunction.should_send
-        if all([i == HI for i in values(conjunction.incoming)])
-            conjunction.msg_buf = LO
-        else
-            conjunction.msg_buf = HI
-        end
-        conjunction.should_send = false
+    out = missing
+    if all([i == HI for i in values(conjunction.incoming)])
+        out = LO
+    else
+        out = HI
     end
+    [(conjunction.name, to, out) for to in conjunction.out_connections]
 end
-
 
 @kwdef mutable struct Broadcast <: AbstractModule
     out_connections::Vector{<:AbstractString}
     name::AbstractString = "broadcaster"
-    msg_buf::Message = nothing
-    incoming::Message = nothing
 end
 
-function receive!(broadcaster::Broadcast, from, msg)
-    broadcaster.incoming = msg
+function process!(broadcast::Broadcast, from, msg)
+    [(broadcast.name, to, msg) for to in broadcast.out_connections]
 end
-
-function process!(broadcaster::Broadcast)
-    broadcaster.msg_buf = broadcaster.incoming
-    broadcaster.incoming = nothing
-end
-
 
 @kwdef struct Dummy <: AbstractModule
     name::AbstractString
     out_connections::Vector{AbstractString} = []
-    msg_buf::Message = nothing
 end
 
 # ---------------------------------------
@@ -121,9 +75,9 @@ function parse_input(raw_data)
         label, connections = split(line, " -> ")
         connections = split(connections, ", ")
         if label[1] == '%'
-            network[label[2:end]] = FlipFlop(name=label[2:end], out_connections=connections)
+            network[label[2:end]] = FlipFlop(label[2:end], connections, false)
         elseif label[1] == '&'
-            network[label[2:end]] = Conjunction(name=label[2:end], out_connections=connections)
+            network[label[2:end]] = Conjunction(label[2:end], connections, Dict())
         elseif label == "broadcaster"
             network[label] = Broadcast(out_connections=connections)
         else
@@ -148,27 +102,23 @@ export parse_input
 function button!(network)
     hi_pulses = 0
     lo_pulses = 1
-    receive!(network["broadcaster"], "button", LO)
-    to_process = Queue{String}()
-    enqueue!(to_process, "broadcaster")
-    println("button lo -> broadcaster -------------")
+    to_process = Queue{Tuple{String, String, Message}}()
+    for pulse in process!(network["broadcaster"], "button", LO)
+        lo_pulses += 1
+        enqueue!(to_process, pulse)
+    end
     while !isempty(to_process)
-        changed = []
-        # change state of all modules in the queue
-        while !isempty(to_process)
-            current = network[dequeue!(to_process)]
-            process!(current)
-            push!(changed, current)
-        end
-        # send pulses from all modules that we just processed
-        for current in changed
-            if current.msg_buf !== nothing
-                his, los = send!(network, current)
-                hi_pulses += his
-                lo_pulses += los
-                for r in current.out_connections
-                    enqueue!(to_process, r)
+        from, to, msg = dequeue!(to_process)
+        # println("$from $msg -> $to")
+        outs = process!(network[to], from, msg)
+        if outs !== nothing
+            for out in outs
+                if out[3] == LO
+                    lo_pulses += 1
+                elseif out[3] == HI
+                    hi_pulses += 1
                 end
+                enqueue!(to_process, out)
             end
         end
     end
