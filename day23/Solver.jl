@@ -3,6 +3,8 @@ using Test
 using AoC
 using AoC.Utils
 using AoC.Utils.Geometry
+import AoC.Utils.Graphs: possible_paths
+import AoC.Utils.Graphs
 using DataStructures
 
 
@@ -12,7 +14,7 @@ end
 export parse_input
 
 
-function neighbours(grid, node)
+function Graphs.neighbours(grid::Dict{<:Point2D, Char}, node::Point2D)
     c = grid[node]
     if c == '>'
         [node + Point2D(1, 0)]
@@ -28,33 +30,41 @@ function neighbours(grid, node)
 end
 
 
-function possible_paths(grid, start, finish)
-    paths = Vector{Point2D}[]
-    q = Queue{Vector{Point2D}}()
-    enqueue!(q, [start])
+"""
+reduce the grid to a weighted graph where the only vertices are path intersections
+"""
+function reduce_grid(grid::Dict{<:Point2D, Char}, start::Point2D)
+    graph = WeightedGraph{Point2D}(Dict())
+    q = Queue{Tuple{Point2D, Vector{Point2D}}}()
+    enqueue!(q, (start, [start]))
+    seen = Set()
     while !isempty(q)
-        current_path = dequeue!(q)
+        vertex, current_path = dequeue!(q)
+        l = length(current_path) - 1
         current = last(current_path)
-        # if this point is already in a queued path but at a later point, we can skip
-        println(length(q))
-        while current != finish
-            ns = neighbours(grid, current) |> filter(n->n∉current_path)
-            if length(ns) == 0
-                break
-            else
-                current, others... = ns
-                for n in others
-                    enqueue!(q, vcat(current_path, [n]))
-                end
-                push!(current_path, current)
+        push!(seen, current)
+        ns = Graphs.neighbours(grid, current) |> filter(n -> n ∉ current_path)
+        if length(ns) == 1
+            # we are not at an intersection
+            enqueue!(q, (vertex, vcat(current_path, ns)))
+        else
+            # we are at an intersection -> add a new vertex
+            graph[vertex][current] = l
+            graph[current][vertex] = l
+            for n in filter(n -> n ∉ seen, ns)
+                enqueue!(q, (current, [current, n]))
             end
         end
-        # check if we actually made it to the end
-        if last(current_path) == finish
-            push!(paths, current_path)
-        end
     end
-    paths
+    graph
+end
+export reduce_grid
+
+
+const WeightedGraph = DefaultDict{T, Dict{T, Int}} where T
+
+function Graphs.neighbours(graph::WeightedGraph{Point2D}, node::Point2D)
+    graph[node] |> keys
 end
 
 
@@ -70,7 +80,20 @@ export solve1
 
 function solve2(grid)
     grid = Dict([k => v ∈ "><v^" ? '.' : v for (k,v) in grid])
-    solve1(grid)
+    _,maxx,_,maxy = corners(keys(grid))
+    start = Point2D(2, 1)
+    finish = Point2D(maxx-1, maxy)
+    graph = reduce_grid(grid, start)
+    paths = possible_paths(graph, start, finish)
+    lengths = []
+    for path in paths
+        l = 0
+        for (p1,p2) in zip(path, path[2:end])
+            l += graph[p1][p2]
+        end
+        push!(lengths, l)
+    end
+    maximum(lengths)
 end
 export solve2
 
