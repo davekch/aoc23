@@ -18,24 +18,6 @@ function parse_input(raw_data)
 end
 export parse_input
 
-# function dijkstra(graph, start, finish)
-# 	unvisited = priorityqueue()
-# 	distances = -inf for all nodes
-# 	distances[start] = 0
-# 	path = {start: undefined}
-# 	unvisited.add(start, 0)
-# 	while unvisited is not empty
-# 		current = unvisited.pop_min()
-# 		for neighbor in unvisited neighbors of current
-# 			d = distances[current] + distance(current, neighbor)
-# 			if d < distances[neighbor]
-# 				distances[neighbor] = d
-# 				path[neighbor] = current
-# 				unvisited.add(neighbor, d)
-# 				if neighbor == finish
-# 					break
-# 	return distances, path
-
 
 function distance(current, neighbor, graph)
     graph[neighbor]
@@ -111,16 +93,117 @@ function path_dependent_dijkstra(graph, start, finish)
     distances, path
 end
 
+#                 location,direction,count
+const Node = Tuple{Point2D, Point2D, Int}
+
+
+function neighbours(graph, node)
+    p, dir, c = node
+    d1 = rot90l(dir)
+    d2 = rot90r(dir)
+    ns = [(p+d1, d1, 1), (p+d2, d2, 1)]
+    if c <= 2
+        # we can also go one step forward
+        push!(ns, (p+dir, dir, c+1))
+    end
+    ns |> filter(n -> n[1] ∈ keys(graph) && n != p - dir)
+end
+
+function distance(current::Node, neighbor::Node, graph)
+    graph[neighbor[1]]
+end
+
+
+function simple_dijkstra(graph, start, finish)
+    queue = PriorityQueue{Node,Int}()
+    queue[start] = 0
+    distances = DefaultDict(1000000)
+    distances[start] = 0
+    path = Dict{Node, Union{Node, Nothing}}()
+    path[start] = nothing
+    seen = Set(start)
+    current = start
+    while !isempty(queue)
+        current = dequeue!(queue)
+        push!(seen, current)
+        # display(queue)
+        println(current)
+        println(length(seen))
+        println(length(queue))
+
+        for n in neighbours(graph, current) |> filter(∉(seen))
+            # if n in keys(path)
+            #     continue
+            # end
+            d = distances[current] + distance(current, n, graph)
+            if d < distances[n]
+                distances[n] = d
+                path[n] = current
+                queue[n] = d
+                if finish(n)
+                    return n, distances, path
+                end
+            end
+        end
+    end
+    current, distances, path
+end
+
+
+function dijkstra(graph, start::Node, finish::Function)
+    unvisited = PriorityQueue()
+    distances = DefaultDict(10000000)
+    distances[start] = 0
+    path = Dict{Node, Union{Node, Nothing}}(start => nothing)
+    enqueue!(unvisited, start=>0)
+    while !isempty(unvisited)
+        current = dequeue!(unvisited)
+        # println(length(unvisited))
+
+        # println(length(path))
+        ps = shortestpath(path, start, current)
+        grid = Dict(getindex.(ps, 1).=>'o')
+        grid[current[1]] = 'X'
+        println("$(distances[current]): $current")
+        println(grid_to_string(grid))
+
+        for neighbour in neighbours(graph, current)
+            # if there is already point with same coordinates and either both count 1 or same direction but higher count
+            if any([neighbour[1] == p[1] && (neighbour[3] == p[3] == 1 || (neighbour[2] == p[2] && neighbour[3] >= p[3])) for p in keys(path)])
+                continue
+            # if neighbour ∈ keys(path) || (neighbour[3] == 1 && neighbour[1] ∈ [p[1] for p in keys(path) if p[3] == 1])
+            #     # println("skip $neighbour")
+            #     continue
+            end
+            d = distances[current] + distance(current, neighbour, graph)
+            if d < distances[neighbour]
+                distances[neighbour] = d
+                path[neighbour] = current
+                unvisited[neighbour] = d
+                # if neighbour ∉ keys(unvisited) #&& !(neighbour[3] == 1 && neighbour[1] ∈ [p[1] for p in keys(unvisited) if p[3] == 1])
+                #     enqueue!(unvisited, neighbour=>d)
+                # end
+                println(neighbour=>d)
+                if finish(neighbour)
+                    return distances, path
+                end
+            end
+        end
+        println("-------------")
+    end
+    distances, path
+end
 
 function solve1(parsed)
     _,maxx,_,maxy = corners(keys(parsed))
-    start = Point2D(1,1)
-    # finish = Point2D(maxx, maxy)
-    finish = Point2D(3,2)
-    distances, paths = path_dependent_dijkstra(parsed, start, finish)
-    path = shortestpath(paths, start, finish)
-    println(grid_to_string(Dict(path.=>'o')))
-    distances[finish]
+    # maxx, maxy = 6, 1
+    start = (Point2D(1,1), Point2D(1,0), 1)
+    finish(node) = node[1] == Point2D(maxx, maxy)
+    finishpoint, distances, paths = simple_dijkstra(parsed, start, finish)
+    # path = shortestpath(paths, start, paths[end])
+    # println(grid_to_string(Dict(getindex.(path, 1).=>'o')))
+    # distances |> filter(p->p[1][1] == Point2D(maxx, maxy)) |> values |> minimum
+    distances[finishpoint]
 end
 export solve1
 
