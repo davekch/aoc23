@@ -2,6 +2,7 @@ module Solver
 using Test
 using AoC
 using AoC.Utils
+import AoC.Utils.Geometry: nd_union_volume
 using DataStructures
 import Combinatorics: combinations
 
@@ -304,17 +305,12 @@ end
 
 function solve2(parsed)
     rules, _ = parsed
-    ranges = rules_to_ranges(rules)
-    result = 1
-    for r in ranges
-        a = (r.maxx - r.minx + 1) * (r.maxm - r.minm + 1) * (r.maxa - r.mina + 1) * (r.maxs - r.mins + 1)
-        result += a
-        # println(r)
-        # println(a)
-        # println(result)
+    _ranges = rules_to_ranges(rules)
+    # stupid
+    ranges = map(_ranges) do r
+        (r.minx:r.maxx, r.minm:r.maxm, r.mina:r.maxa, r.mins:r.maxs)
     end
-    # dont ask about the -1 😭
-    result - intersections_area(ranges) - 1
+    nd_union_volume(ranges)
 end
 export solve2
 

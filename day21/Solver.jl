@@ -43,13 +43,13 @@ function solve(nsteps, (start, grid))
         reached = length(newq)
         # # debug stuff for part 2 --------------------
         # println("after $i steps: $reached")
-        # printable = Dict([
-        #     p => (p.x ∈ 1:11 && p.y ∈ 1:11) ? "\033[48;5;57m$c\033[0m" : c
-        #     for (p, c) in grid ∪ Dict(newq.=>'O')
-        # ])
-        # println(grid_to_string(printable))
+        printable = Dict([
+            p => (p.x ∈ 1:11 && p.y ∈ 1:11) ? "\033[48;5;57m$c\033[0m" : c
+            for (p, c) in grid ∪ Dict(newq.=>'O')
+        ])
+        println(grid_to_string(printable))
         # # println("reached in original grid: $(length(filter(p -> p.x ∈ 1:11 && p.y ∈ 1:11, newq)))")
-        # sleep(0.03)
+        sleep(0.03)
         # # -------------------------------------------
         q = newq
     end
@@ -73,8 +73,6 @@ end
 export solve1
 
 
-const Grid = Dict{Point2D, Char}
-
 function solve_infinite(nsteps, (start, grid))
     minx,maxx,miny,maxy = corners(keys(grid))
     reached = 0
@@ -87,9 +85,14 @@ function solve_infinite(nsteps, (start, grid))
     # history of how many we reached for each grid
     occupied = DefaultDict{Point2D, Vector{Int}}([])
     oscillates = Point2D[]
-    for i = 1:nsteps
-        println(i)
+    multiplicities = Dict{Point2D, Int}()
+
+
+    # todo: make the q a q only of points, make grid_ij relative and add it up together below -> this way you can cache this function
+    function process_queue(q)
         newq = Tuple{Point2D, Point2D}[]
+        occs = DefaultDict{Point2D, Int}(0)
+        println("todo: $(length(q))")
         while !isempty(q)
             grid_ij, current = pop!(q)
             for n ∈ neighbours4(current)
@@ -107,15 +110,17 @@ function solve_infinite(nsteps, (start, grid))
                 n = Point2D(mod(n.x, minx:maxx), mod(n.y, miny:maxy))
                 if grid[n] != '#' && (n_grid_ij, n) ∉ newq && n_grid_ij ∉ oscillates  # the border does not contain rocks
                     push!(newq, (n_grid_ij, n))
+                    occs[n_grid_ij] += 1
                 end
             end
         end
+        newq, occs
+    end
+
+    for i = 1:nsteps
+        println(i)
+        newq, occs = process_queue(q)
         # stupid
-        # println(newq)
-        occs = DefaultDict{Point2D, Int}(0)
-        for (grid_ij, _) in newq
-            occs[grid_ij] += 1
-        end
         # display(newq)
         # check if one of the grids is oscillating
         for (grid_ij, occ) in occs
@@ -126,10 +131,10 @@ function solve_infinite(nsteps, (start, grid))
                 # we now know what this grid will contribute to the number of reached points;
                 # depends only on whether we are at an odd or even step
                 if nsteps % 2 == i % 2
-                    println("$grid_ij oscillates, will be $(occ)")
+                    # println("$grid_ij oscillates, will be $(occ)")
                     reached += occ
                 else
-                    println("$grid_ij oscillates, will be $(history[end])")
+                    # println("$grid_ij oscillates, will be $(history[end])")
                     reached += history[end]
                 end
                 pop!(occupied, grid_ij)
@@ -138,6 +143,21 @@ function solve_infinite(nsteps, (start, grid))
                 push!(history, occ)
             end
         end
+
+        # println(length(newq))
+
+        # # check for grids in the same state -> they will evolve the same
+        # # this is all kinda clumsy urgh
+        # gridstates = DefaultDict{Point2D, Set{Point2D}}(Set())
+        # for (g, p) in newq
+        #     push!(gridstates[g], p)
+        # end
+        # equalgrids = DefaultDict{Tuple, Vector{Point2D}}([])
+        # for (g,state) in gridstates
+        #     push!(equalgrids[tuple(state...)], g)
+        # end
+        # println("multiplicity: $(map(length, equalgrids|>values))")
+
         q = newq
     end
     # display(occupied)
@@ -148,7 +168,8 @@ export solve_infinite
 
 
 function solve2(parsed)
-    solve_infinite(26501365, parsed)
+    # solve_infinite(26501365, parsed)
+    solve(26501365, parsed)
 end
 export solve2
 
