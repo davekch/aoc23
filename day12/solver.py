@@ -1,4 +1,6 @@
 import functools
+import itertools
+from collections import Counter
 
 from aoc import utils
 
@@ -15,19 +17,41 @@ def parse(raw_data):
     return data
 
 
-@functools.lru_cache(maxsize=None)
-def n_possibilities(record, damaged):
-    chunks = [c for c in record.split(".") if c != ""]
-    lchunks = tuple(map(len, chunks))
-    if "?" not in record:
-        if lchunks == damaged:
-            return 1
-        else:
-            return 0
-    n = 0
-    n += n_possibilities(record.replace("?", ".", 1), damaged)
-    n += n_possibilities(record.replace("?", "#", 1), damaged)
-    return n
+def build_transition_tree(ns: tuple[int]) -> dict:
+    """
+    convert a spring specification into a dict of transitions of a fsm
+    """
+    transitions = {}
+    curr = 0
+    for n in ns:
+        # before a sequence of #s we can have either dots or a #
+        transitions[curr] = {".": [curr], "#": [curr + 1], "?": [curr, curr + 1]}
+        curr += 1
+        # for n-1 times, we can only go to a next #
+        for i in range(n-1):
+            transitions[curr] = {"#": [curr + 1], "?": [curr + 1]}
+            curr += 1
+        # now we must go to a ., ending the sequence of #s
+        transitions[curr] = {".": [curr + 1], "?": [curr + 1]}
+        curr += 1
+    # at the very end we can have arbitrarily many dots
+    transitions[curr] = {".": [curr], "?": [curr]}
+    return transitions
+
+
+def count_valid(transitions, string):
+    # keep track of states we're in and how often
+    states = Counter({0: 1})
+    for char in string:
+        newstates = Counter()
+        for state, count in states.items():
+            # only if there is a transition for this char, the string is valid and we move to all next states
+            if char in transitions[state]:
+                for next_state in transitions[state][char]:
+                    newstates[next_state] += count
+        states = newstates
+    # the last two are both valid states; the very last one represents repeated dots
+    return states[max(transitions.keys())] + states[max(transitions.keys()) - 1]
 
 
 # PART 1
@@ -35,14 +59,24 @@ def n_possibilities(record, damaged):
 def solve1(data):
     n = 0
     for record, damaged in data:
-        n += n_possibilities(record, damaged)
+        transitions = build_transition_tree(damaged)
+        valid = count_valid(transitions, record)
+        # print(f"{record} {damaged}: {valid=}")
+        n += valid
     return n
 
 
 # PART 2
 @measure_time
 def solve2(data):
-    pass
+    n = 0
+    for record, damaged in data:
+        record = "?".join(itertools.repeat(record, 5))
+        damaged = ",".join(itertools.repeat(",".join(map(str, damaged)), 5))
+        damaged = map(int, damaged.split(","))
+        transitions = build_transition_tree(damaged)
+        n += count_valid(transitions, record)
+    return n
 
 
 if __name__ == "__main__":
