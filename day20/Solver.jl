@@ -143,7 +143,41 @@ end
 export solve1
 
 
-function solve2(parsed)
+function solve2(network)
+    # basically button! again but with cycle detection
+    # hard coded: cl, bm, dr, tn are the nodes that must send HI at the same time,
+    # they send to the conjunction vr which alone sends to rx
+    cl_cycle = 0
+    bm_cycle = 0
+    dr_cycle = 0
+    tn_cycle = 0
+    btn_presses = 0
+    while any([x==0 for x in [cl_cycle, bm_cycle, dr_cycle, tn_cycle]])
+        to_process = Queue{Tuple{String, String, Message}}()
+        btn_presses += 1
+        for pulse in process!(network["broadcaster"], "button", LO)
+            enqueue!(to_process, pulse)
+        end
+        while !isempty(to_process)
+            from, to, msg = dequeue!(to_process)
+            if to == "vr" && from == "cl" && msg == HI
+                cl_cycle = btn_presses
+            elseif to == "vr" && from == "bm" && msg == HI
+                bm_cycle = btn_presses
+            elseif to == "vr" && from == "dr" && msg == HI
+                dr_cycle = btn_presses
+            elseif to == "vr" && from == "tn" && msg == HI
+                tn_cycle = btn_presses
+            end
+            outs = process!(network[to], from, msg)
+            if outs !== nothing
+                for out in outs
+                    enqueue!(to_process, out)
+                end
+            end
+        end
+    end
+    return cl_cycle * bm_cycle * dr_cycle * tn_cycle
 end
 export solve2
 
